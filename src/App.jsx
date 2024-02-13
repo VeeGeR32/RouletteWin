@@ -1,154 +1,192 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import Cookies from 'js-cookie';
 
-const RouletteTracker = () => {
+const App = () => {
   const [number, setNumber] = useState('');
-  const [history, setHistory] = useState([]);
-  const [leastFrequentNumbers, setLeastFrequentNumbers] = useState([]);
-  const [colorProbability, setColorProbability] = useState({ red: 50, black: 50 });
+  const [history, setHistory] = useState(Cookies.get('history') ? JSON.parse(Cookies.get('history')) : []);
+  const [error, setError] = useState('');
+  const [colorStreak, setColorStreak] = useState({ color: '', count: 0 });
 
-  useEffect(() => {
-    const savedHistory = JSON.parse(localStorage.getItem('rouletteHistory')) || [];
-    setHistory(savedHistory);
-    updateCalculations(savedHistory);
-  }, []);
+  const handleChange = (e) => {
+    setNumber(e.target.value);
+  };
 
-  useEffect(() => {
-    localStorage.setItem('rouletteHistory', JSON.stringify(history));
-    updateCalculations(history);
+  const getMedalColor = (index) => {
+    switch (index) {
+      case 0:
+        return 'text-green-400'; // Bronze
+      case 1:
+        return 'text-blue-400'; // Argent
+      case 2:
+        return 'text-yellow-400'; // Or
+      default:
+        return 'text-black'; // Couleur par défaut pour les autres rangs
+    }
+  };
+  const calculateColorStreak = (newHistory, useRawColor = false) => {
+    let lastColor = useRawColor ? getColorForNumberRaw(newHistory[newHistory.length - 1]) : getColorForNumber(newHistory[newHistory.length - 1]);
+    let count = 1;
+    
+    for (let i = newHistory.length - 2; i >= 0; i--) {
+      const currentColor = useRawColor ? getColorForNumberRaw(newHistory[i]) : getColorForNumber(newHistory[i]);
+      if (currentColor === lastColor) {
+        count++;
+      } else {
+        break;
+      }
+    }
+  
+    return count > 1 ? { color: lastColor, count } : { color: '', count: 0 };
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    const value = parseInt(number, 10);
+    if (value < 0 || value > 36 || isNaN(value)) {
+      setError('Veuillez entrer un nombre entre 0 et 36.');
+      return;
+    }
+    setError('');
+    const newHistory = [...history, value.toString()];
+    setHistory(newHistory);
+    setNumber('');
+    // Utilisez getColorForNumberRaw pour obtenir le nom de la couleur en français
+    const newColorStreak = calculateColorStreak(newHistory, true); // Ajout d'un paramètre pour utiliser getColorForNumberRaw
+    setColorStreak(newColorStreak);
+  };
+
+  const submitNumber = () => {
+    const value = parseInt(number, 10);
+    if (value < 0 || value > 36 || isNaN(value)) {
+      setError('Veuillez entrer un nombre entre 0 et 36.');
+      return;
+    }
+    setError('');
+    setHistory([...history, value.toString()]);
+    setNumber('');
+  };
+
+  const handleDelete = (indexToDelete) => {
+    setHistory(history.filter((_, index) => index !== indexToDelete));
+  };
+
+  const handleKeyPress = (digit) => {
+    const newValue = `${number}${digit}`.slice(0, 2); // Limite la saisie à 2 chiffres
+    setNumber(newValue);
+  };
+
+  const handleReset = () => {
+    setNumber(''); // Réinitialise uniquement la valeur dans l'input
+  };
+
+  const getColorForNumber = (num) => {
+    const value = parseInt(num, 10);
+    if (value === 0) return 'text-green-600';
+    if (value % 2 === 0) return 'text-black';
+    return 'text-red-600';
+  };
+  const getColorForNumberRaw = (num) => {
+    const value = parseInt(num, 10);
+    if (value === 0) return 'vert'; // Retourne 'vert' pour 0
+    if (value % 2 === 0) return 'noir'; // Retourne 'noir' pour les pairs
+    return 'rouge'; // Retourne 'rouge' pour les impairs
+  };
+
+  const numberFrequency = useMemo(() => {
+    const frequency = Array(37).fill(0);
+    history.forEach(num => {
+      const value = parseInt(num, 10);
+      if (value >= 0 && value <= 36) {
+        frequency[value]++;
+      }
+    });
+    return frequency.map((count, number) => ({ number, count }));
   }, [history]);
 
-  const updateCalculations = (history) => {
-    setLeastFrequentNumbers(calculateLeastFrequentNumbers(history));
-    setColorProbability(calculateColorProbability(history));
-  };
+  const sortedNumbers = useMemo(() => {
+    return numberFrequency.sort((a, b) => a.count - b.count);
+  }, [numberFrequency]);
 
-  const handleNumberSubmit = (e) => {
-    e.preventDefault();
-    if (number !== '' && !isNaN(number) && number >= 0 && number <= 36) {
-      const color = determineColor(number);
-      const newEntry = { number: parseInt(number), color };
-      setHistory([newEntry, ...history]);
-      setNumber('');
-    }
-  };
+  const keypadOrder = [1, 2, 3, 4, 5, 6, 7, 8, 9, 0];
 
-  const determineColor = (number) => {
-    if (number === '0') {
-      return 'green';
-    }
-    const redNumbers = [1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36];
-    return redNumbers.includes(parseInt(number)) ? 'red' : 'black';
-  };
+  useEffect(() => {
+    // Mettre à jour les cookies à chaque modification de l'historique ou du color streak
+    Cookies.set('history', JSON.stringify(history));
+    Cookies.set('colorStreak', JSON.stringify(colorStreak));
+  }, [history, colorStreak]);
 
-  const calculateLeastFrequentNumbers = (history) => {
-    const maxNumber = 36;
-    let lastSeen = {};
-  
-    // Au lieu d'initialiser à -1, initialisez chaque numéro avec le nombre total de tirages
-    // Cela simule un incrément de chaque compteur à chaque tirage
-    for (let i = 0; i <= maxNumber; i++) {
-      lastSeen[i] = history.length; // Chaque numéro est "vu" au début
-    }
-  
-    // Mettre à jour lastSeen pour chaque numéro dans l'historique en décrémentant
-    // pour simuler "combien de tours depuis vu"
-    history.forEach((entry, index) => {
-      lastSeen[parseInt(entry.number)] = 0; // Réinitialiser le compteur pour le numéro tiré à 0
-      Object.keys(lastSeen).forEach(num => {
-        if (parseInt(num) !== parseInt(entry.number)) {
-          lastSeen[num]++; // Incrémenter pour tous les autres numéros
-        }
-      });
-    });
-  
-    // Transformer lastSeen en tableau pour le tri et l'affichage
-    let scores = Object.keys(lastSeen).map(num => ({
-      number: parseInt(num),
-      roundsSinceLastSeen: lastSeen[num]
-    }));
-  
-    // Trier les scores par le nombre de rounds depuis vu décroissant pour trouver les numéros "en retard"
-    scores.sort((a, b) => b.roundsSinceLastSeen - a.roundsSinceLastSeen);
-  
-    // Prendre les 5 numéros les plus "en retard"
-    return scores.slice(0, 5);
-  };
-  
-
-
-  const calculateColorProbability = (history) => {
-    let redStreak = 0;
-    let blackStreak = 0;
-    let probRed = 0.5;
-    let probBlack = 0.5;
-
-    history.forEach((entry, i) => {
-      if (entry.color === 'red') {
-        redStreak++;
-        blackStreak = 0;
-      } else if (entry.color === 'black') {
-        blackStreak++;
-        redStreak = 0;
-      } else {
-        redStreak = 0;
-        blackStreak = 0;
-      }
-
-      if (i === 0) {
-        probRed = entry.color === 'red' ? Math.pow(0.5, redStreak) * 100 : 50;
-        probBlack = entry.color === 'black' ? Math.pow(0.5, blackStreak) * 100 : 50;
-      }
-    });
-
-    return { red: probRed.toFixed(2), black: probBlack.toFixed(2) };
-  };
-
+  // Ajoutez un bouton de réinitialisation de l'historique qui met à jour également les cookies
   const resetHistory = () => {
     setHistory([]);
-    localStorage.removeItem('rouletteHistory');
-    setColorProbability({ red: 50, black: 50 });
+    setColorStreak({ color: '', count: 0 });
   };
 
+
   return (
-    <div className="container mx-auto p-4 bg-gray-100 rounded-lg shadow">
-      <form onSubmit={handleNumberSubmit} className="flex items-center justify-between bg-white p-4 rounded shadow mb-4">
-        <input
-          type="number"
-          value={number}
-          onChange={(e) => setNumber(e.target.value)}
-          placeholder="Enter number (0-36)"
-          className="outline-none text-center p-2 rounded mr-2 w-full"
-          min="0"
-          max="36"
-        />
-        <button type="submit" className="btn btn-primary flex-shrink-0">Add</button>
+    <div className="container mx-auto px-4 py-8 flex flex-col items-center">
+      <form className="flex mb-8 bg-slate-50 w-36 rounded-sm justify-around p-1">
+        <div className='bg-white flex w-20 justify-around rounded-lg'>
+          <input
+            type="text"
+            value={number}
+            onChange={handleChange}
+            className="w-8 outline-none py-1 px-2 bg-transparent"
+          />
+          <button onClick={handleReset} className="text-xl">✕</button>
+        </div>
+        <button onClick={handleSubmit} className="text-3xl">+</button>
       </form>
-      <div>
-        <h2 className="text-2xl font-bold mb-2">History</h2>
-        <div className="p-4 bg-white rounded shadow">
-          {history.map((entry, index) => (
-            <span key={index} className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${entry.color === 'red' ? 'bg-red-100 text-red-800' : entry.color === 'black' ? 'bg-gray-900 text-white' : 'bg-green-100 text-green-800'}`}>
-              {entry.number}
-            </span>
-          ))}
+      <div className="grid grid-cols-3 justify-center mt-4">
+        {keypadOrder.map((digit) => (
+          <button
+            key={digit}
+            onClick={() => handleKeyPress(digit)}
+            className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 px-4 m-1 rounded"
+          >
+            {digit}
+          </button>
+        ))}
+      </div>
+      {colorStreak.count > 0 && (
+        <div className="mt-4 flex gap-1">
+          <img className={`h-5 text-${colorStreak.color}`} src="https://uxwing.com/wp-content/themes/uxwing/download/e-commerce-currency-shopping/flame-icon.png" alt="" />
+          {colorStreak.count} fois {colorStreak.color} consécutivement
+          <img className={`h-5 text-${colorStreak.color}`} src="https://uxwing.com/wp-content/themes/uxwing/download/e-commerce-currency-shopping/flame-icon.png" alt="" />
+        </div>
+      )}
+
+      <h2 className="text-sm mb-4 text-red-600">{error}</h2>
+      <div className="flex items-center justify-around flex-wrap gap-2">
+        <div className='flex flex-col items-center overflow-scroll h-96 w-60 border p-4 rounded-lg'>
+          <h2 className="text-lg font-semibold mb-4 text-center">Historique des chiffres</h2>
+          <ul>
+            {history.slice().reverse().map((num, reversedIndex) => {
+              const index = history.length - 1 - reversedIndex; // Calculer l'index original
+              return (
+                <li key={index} className={`flex justify-between items-center p-2 font-medium ${getColorForNumber(num)}`}>
+                  {index + 1} : Nombre {num}
+                  <button onClick={() => handleDelete(index)}>
+                    <img src="https://uxwing.com/wp-content/themes/uxwing/download/user-interface/red-trash-can-icon.png" alt="a" className='h-3 ml-2' />
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+        <div className="h-96 w-60 border p-4 rounded-lg overflow-scroll flex flex-col items-center">
+          <h3 className="text-lg font-semibold mb-4 text-center">Classement des nombres</h3>
+          <ul className="list-decimal pl-4">
+            {sortedNumbers.map(({ number, count }, index) => (
+              <li key={number} className={`p-2 ${getMedalColor(index)}`}>
+                Nombre {number} : {count} fois
+              </li>
+            ))}
+          </ul>
         </div>
       </div>
-      <div>
-        <h2 className="text-2xl font-bold mb-2">Least Likely Numbers</h2>
-        <ul>
-          {leastFrequentNumbers.map((entry) => (
-            <li key={entry.number}>{`Number: ${entry.number}, Rounds Since Last Seen: ${entry.roundsSinceLastSeen}`}</li>
-          ))}
-        </ul>
-      </div>
-      <div>
-        <h2 className="text-2xl font-bold mb-2">Color Probabilities</h2>
-        <p>Red: {colorProbability.red}%</p>
-        <p>Black: {colorProbability.black}%</p>
-      </div>
-      <button onClick={resetHistory} className="btn btn-secondary mt-4">Reset History</button>
+      <button onClick={resetHistory} className="text-xl">Reset</button>
     </div>
   );
 };
 
-export default RouletteTracker;
+export default App;
