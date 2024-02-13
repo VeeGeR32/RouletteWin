@@ -6,6 +6,7 @@ const App = () => {
   const [history, setHistory] = useState(Cookies.get('history') ? JSON.parse(Cookies.get('history')) : []);
   const [error, setError] = useState('');
   const [colorStreak, setColorStreak] = useState({ color: '', count: 0 });
+  
 
   const handleChange = (e) => {
     setNumber(e.target.value);
@@ -158,7 +159,7 @@ const App = () => {
       <h2 className="text-sm mb-4 text-red-600">{error}</h2>
       <div className="flex items-center justify-around flex-wrap gap-2">
         <div className='flex flex-col items-center overflow-scroll h-96 w-60 border p-4 rounded-lg'>
-          <h2 className="text-lg font-semibold mb-4 text-center">Historique des chiffres</h2>
+          <h2 className="text-lg font-semibold mb-4 text-center">Historique des nombres</h2>
           <ul>
             {history.slice().reverse().map((num, reversedIndex) => {
               const index = history.length - 1 - reversedIndex; // Calculer l'index original
