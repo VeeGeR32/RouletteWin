@@ -15,13 +15,13 @@ const App = () => {
   const getMedalColor = (index) => {
     switch (index) {
       case 0:
-        return 'text-green-400'; // Bronze
+        return 'text-green-400';
       case 1:
-        return 'text-blue-400'; // Argent
+        return 'text-blue-400';
       case 2:
-        return 'text-yellow-400'; // Or
+        return 'text-yellow-400';
       default:
-        return 'text-black'; // Couleur par défaut pour les autres rangs
+        return 'text-black';
     }
   };
   const calculateColorStreak = (newHistory, useRawColor = false) => {
@@ -51,8 +51,7 @@ const App = () => {
     const newHistory = [...history, value.toString()];
     setHistory(newHistory);
     setNumber('');
-    // Utilisez getColorForNumberRaw pour obtenir le nom de la couleur en français
-    const newColorStreak = calculateColorStreak(newHistory, true); // Ajout d'un paramètre pour utiliser getColorForNumberRaw
+    const newColorStreak = calculateColorStreak(newHistory, true);
     setColorStreak(newColorStreak);
   };
 
@@ -72,12 +71,12 @@ const App = () => {
   };
 
   const handleKeyPress = (digit) => {
-    const newValue = `${number}${digit}`.slice(0, 2); // Limite la saisie à 2 chiffres
+    const newValue = `${number}${digit}`.slice(0, 2);
     setNumber(newValue);
   };
 
   const handleReset = () => {
-    setNumber(''); // Réinitialise uniquement la valeur dans l'input
+    setNumber('');
   };
 
   const getColorForNumber = (num) => {
@@ -88,9 +87,9 @@ const App = () => {
   };
   const getColorForNumberRaw = (num) => {
     const value = parseInt(num, 10);
-    if (value === 0) return 'vert'; // Retourne 'vert' pour 0
-    if (value % 2 === 0) return 'noir'; // Retourne 'noir' pour les pairs
-    return 'rouge'; // Retourne 'rouge' pour les impairs
+    if (value === 0) return 'vert';
+    if (value % 2 === 0) return 'noir';
+    return 'rouge';
   };
 
   const numberFrequency = useMemo(() => {
@@ -111,18 +110,13 @@ const App = () => {
   const keypadOrder = [1, 2, 3, 4, 5, 6, 7, 8, 9, 0];
 
   useEffect(() => {
-    // Mettre à jour les cookies à chaque modification de l'historique ou du color streak
     Cookies.set('history', JSON.stringify(history));
     Cookies.set('colorStreak', JSON.stringify(colorStreak));
   }, [history, colorStreak]);
-
-  // Ajoutez un bouton de réinitialisation de l'historique qui met à jour également les cookies
   const resetHistory = () => {
     setHistory([]);
     setColorStreak({ color: '', count: 0 });
   };
-
-
   return (
     <div className="container mx-auto px-4 py-8 flex flex-col items-center">
       <form className="flex mb-8 bg-slate-50 w-36 rounded-sm justify-around p-1">
@@ -138,11 +132,12 @@ const App = () => {
         <button onClick={handleSubmit} className="text-3xl">+</button>
       </form>
       <div className="grid grid-cols-3 justify-center mt-4">
-        {keypadOrder.map((digit) => (
+        {keypadOrder.map((digit, index) => (
           <button
             key={digit}
             onClick={() => handleKeyPress(digit)}
-            className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 px-4 m-1 rounded"
+            className={`bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 px-4 m-1 rounded`}
+            style={{gridArea: index === 9 ? '4/2/5/3' : '' }}
           >
             {digit}
           </button>
@@ -162,7 +157,7 @@ const App = () => {
           <h2 className="text-lg font-semibold mb-4 text-center">Historique des nombres</h2>
           <ul>
             {history.slice().reverse().map((num, reversedIndex) => {
-              const index = history.length - 1 - reversedIndex; // Calculer l'index original
+              const index = history.length - 1 - reversedIndex;
               return (
                 <li key={index} className={`flex justify-between items-center p-2 font-medium ${getColorForNumber(num)}`}>
                   {index + 1} : Nombre {num}
